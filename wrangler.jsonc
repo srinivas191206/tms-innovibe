@@ -17,12 +17,6 @@
       "service": "tms-innovibe"
     }
   ],
-  "r2_buckets": [
-    {
-      "binding": "NEXT_INC_CACHE_R2_BUCKET",
-      "bucket_name": "tms-innovibe-opennext-cache"
-    }
-  ],
   "images": {
     "binding": "IMAGES"
   }
