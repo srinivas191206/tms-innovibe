@@ -159,7 +159,7 @@ export default async function EmployeeDashboard() {
                 className="flex items-center gap-2 text-xs font-bold px-5 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/25 hover:scale-[1.02] active:scale-[0.99] transition-all cursor-pointer animate-pulse"
               >
                 <ScanFace className="w-4 h-4" />
-                AI Face Check-in Required
+                Biometric Check-in Required
               </a>
             )}
           </div>

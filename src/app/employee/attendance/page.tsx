@@ -32,7 +32,7 @@ export default async function EmployeeAttendancePage() {
     <DashboardLayout>
       <div className="space-y-6">
         <div>
-          <h2 className="text-2xl font-bold font-outfit">AI Biometric Portal</h2>
+          <h2 className="text-2xl font-bold font-outfit">Biometric Portal</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Situate your face inside the dashed reticle and ensure location permissions are active to log your entry.</p>
         </div>
         <AttendanceScannerClient todayAttendance={todayAttendance} userId={session.user.id} />

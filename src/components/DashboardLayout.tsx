@@ -45,7 +45,7 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
   
   // Employee Navigation
   { name: 'My Portal', href: '/employee', icon: LayoutDashboard, roles: ['EMPLOYEE', 'DEPT_HEAD', 'ADMIN'] },
-  { name: 'AI Face Attendance', href: '/employee/attendance', icon: Clock, roles: ['EMPLOYEE', 'DEPT_HEAD', 'ADMIN'] },
+  { name: 'Biometric Attendance', href: '/employee/attendance', icon: Clock, roles: ['EMPLOYEE', 'DEPT_HEAD', 'ADMIN'] },
   { name: 'My Tasks', href: '/employee/tasks', icon: Briefcase, roles: ['EMPLOYEE', 'DEPT_HEAD', 'ADMIN'] },
   { name: 'Leave Requests', href: '/employee/leaves', icon: FileCheck, roles: ['EMPLOYEE', 'DEPT_HEAD', 'ADMIN'] },
   { name: 'My Settings', href: '/employee/settings', icon: Settings, roles: ['EMPLOYEE', 'DEPT_HEAD', 'ADMIN'] }
@@ -132,7 +132,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* 1. SIDEBAR (DESKTOP) */}
       <aside className="hidden md:flex flex-col w-64 border-r border-border bg-card text-card-foreground shrink-0 select-none">
         <div className="h-16 flex items-center px-6 border-b border-border bg-accent/20">
-          <span className="font-extrabold text-xl tracking-tight text-indigo-500 font-outfit">INNOVIBE <span className="text-foreground/80 font-normal text-sm">TMS+AI</span></span>
+          <span className="font-extrabold text-xl tracking-tight text-indigo-500 font-outfit">INNOVIBE <span className="text-foreground/80 font-normal text-sm">TMS</span></span>
         </div>
         
         {/* Navigation Items */}

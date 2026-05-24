@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 import AdminLeaveActions from './AdminLeaveActions';
 import AdminAnalytics from './AdminAnalytics';
-import AIInsightsCard from '@/components/AIInsightsCard';
 import ExportReportsButton from '@/components/ExportReportsButton';
 import { runOperationalEscalationAudit } from '@/lib/escalation';
 
@@ -255,8 +254,7 @@ export default async function AdminDashboard() {
           </div>
         )}
 
-        {/* Gemini AI Cognitive Analysis Card */}
-        <AIInsightsCard />
+        {/* Analytics Summary */}
 
         {/* 1. KPI CARDS */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

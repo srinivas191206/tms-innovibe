@@ -3,8 +3,8 @@ import { Providers } from '@/components/Providers';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Innovibe TMS + AI Attendance Portal',
-  description: 'Production-ready internal portal featuring automated task management, real-time AI face verification, geo-location checking, and granular role dashboards.',
+  title: 'Innovibe TMS & Attendance Portal',
+  description: 'Production-ready internal portal featuring automated task management, real-time biometric verification, geo-location checking, and granular role dashboards.',
   manifest: '/manifest.json'
 };
 

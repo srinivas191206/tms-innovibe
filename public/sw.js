@@ -1,4 +1,4 @@
-const CACHE_NAME = 'innovibe-cache-v1';
+const CACHE_NAME = 'innovibe-cache-v2';
 const ASSETS_TO_CACHE = [
   '/login',
   '/favicon.ico',
@@ -35,6 +35,18 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   // Only intercept simple GET requests to avoid interrupting prisma POST updates or auth sessions
   if (event.request.method !== 'GET') return;
+
+  // Exclude API requests, Next.js internal files, and dynamic authenticated routes from service worker caching
+  const url = new URL(event.request.url);
+  if (
+    url.pathname.startsWith('/api/') ||
+    url.pathname.startsWith('/_next/') ||
+    url.pathname.startsWith('/head') ||
+    url.pathname.startsWith('/admin') ||
+    url.pathname.startsWith('/employee')
+  ) {
+    return;
+  }
 
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {

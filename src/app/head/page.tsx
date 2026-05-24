@@ -17,7 +17,6 @@ import {
 } from 'lucide-react';
 import HeadClient from './HeadClient';
 import HeadAnalytics from './HeadAnalytics';
-import AIInsightsCard from '@/components/AIInsightsCard';
 import ExportReportsButton from '@/components/ExportReportsButton';
 import { runOperationalEscalationAudit } from '@/lib/escalation';
 
@@ -247,8 +246,7 @@ export default async function HeadDashboard() {
           </div>
         )}
 
-        {/* Gemini AI Cognitive Analysis Card */}
-        <AIInsightsCard />
+        {/* Analytics Summary */}
 
         {/* STATS CARDS GRID */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

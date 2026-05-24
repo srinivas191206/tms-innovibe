@@ -229,7 +229,7 @@ export default function AttendanceClient({
               />
             </div>
             <p className="text-[10px] text-muted-foreground leading-normal text-center">
-              Timestamp and facial biometric signatures validated by Innovibe AI scanner.
+              Timestamp and facial biometric signatures validated by Innovibe scanner.
             </p>
           </div>
         </div>

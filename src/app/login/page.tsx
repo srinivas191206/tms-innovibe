@@ -113,10 +113,10 @@ function LoginContent() {
 
         <div className="relative z-10 space-y-4 my-auto py-12 md:py-0 max-w-lg">
           <h2 className="text-4xl md:text-5xl font-extrabold font-outfit leading-tight tracking-tight">
-            The Smart, AI-Driven <span className="gradient-text">TMS & Attendance</span> Portal.
+            The Smart <span className="gradient-text">TMS & Attendance</span> Portal.
           </h2>
           <p className="text-sm md:text-base text-slate-300 leading-relaxed font-light">
-            An all-in-one corporate environment for real-time AI face recognition attendance, intelligent office lateness auditing, and visual project task boards.
+            An all-in-one corporate environment for real-time biometric attendance, intelligent office lateness auditing, and visual project task boards.
           </p>
         </div>
 
