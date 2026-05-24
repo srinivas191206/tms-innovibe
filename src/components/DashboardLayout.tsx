@@ -170,8 +170,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           </div>
           <button
-            onClick={() => signOut({ callbackUrl: '/login' })}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-rose-500 hover:bg-rose-500/10 rounded-xl border border-rose-500/20 transition-colors duration-200"
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              signOut({ callbackUrl: '/login' });
+            }}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-rose-500 hover:bg-rose-500/10 rounded-xl border border-rose-500/20 transition-colors duration-200 cursor-pointer"
           >
             <LogOut className="w-4 h-4" />
             Sign Out
@@ -319,8 +323,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
               </div>
               <button
-                onClick={() => signOut({ callbackUrl: '/login' })}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold text-rose-500 hover:bg-rose-500/10 rounded-xl border border-rose-500/20"
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  signOut({ callbackUrl: '/login' });
+                }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold text-rose-500 hover:bg-rose-500/10 rounded-xl border border-rose-500/20 cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
                 Sign Out
