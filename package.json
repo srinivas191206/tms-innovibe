@@ -9,7 +9,8 @@
     "lint": "eslint",
     "seed": "prisma db seed",
     "build:cf": "opennextjs-cloudflare build",
-    "deploy:cf": "opennextjs-cloudflare deploy"
+    "deploy:cf": "opennextjs-cloudflare deploy",
+    "postinstall": "node -e \"const fs = require('fs'); const p = './node_modules/pg-cloudflare/package.json'; if (fs.existsSync(p)) { let pkg = fs.readFileSync(p, 'utf8'); pkg = pkg.replace('./dist/empty.js', './dist/index.js'); fs.writeFileSync(p, pkg); }\""
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.19.11",
