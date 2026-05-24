@@ -10,7 +10,7 @@
     "seed": "prisma db seed",
     "build:cf": "opennextjs-cloudflare build",
     "deploy:cf": "opennextjs-cloudflare deploy",
-    "postinstall": "node -e \"const fs = require('fs'); const p = './node_modules/pg-cloudflare/package.json'; if (fs.existsSync(p)) { let pkg = fs.readFileSync(p, 'utf8'); pkg = pkg.replace('./dist/empty.js', './dist/index.js'); fs.writeFileSync(p, pkg); }\""
+    "postinstall": "node -e \"const fs = require('fs'); const path = require('path'); const p = './node_modules/pg-cloudflare/package.json'; if (fs.existsSync(p)) { let pkg = fs.readFileSync(p, 'utf8'); pkg = pkg.replace('./dist/empty.js', './dist/index.js'); fs.writeFileSync(p, pkg); } const runtimeDir = './node_modules/@prisma/client/runtime'; if (fs.existsSync(runtimeDir)) { fs.readdirSync(runtimeDir).forEach(f => { if (f.endsWith('.wasm')) fs.unlinkSync(path.join(runtimeDir, f)); }); }\""
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.19.11",
