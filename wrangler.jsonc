@@ -2,7 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "tms-innovibe",
   "main": ".open-next/worker.js",
-  "compatibility_date": "2026-05-24",
+  "compatibility_date": "2025-04-01",
   "compatibility_flags": [
     "nodejs_compat",
     "global_fetch_strictly_public"
@@ -15,6 +15,12 @@
     {
       "binding": "WORKER_SELF_REFERENCE",
       "service": "tms-innovibe"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "NEXT_INC_CACHE_R2_BUCKET",
+      "bucket_name": "tms-innovibe-opennext-cache"
     }
   ],
   "images": {
