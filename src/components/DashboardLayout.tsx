@@ -198,12 +198,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {/* Quick Actions (Header Right) */}
           <div className="flex items-center gap-3">
 
+            {/* Theme Toggle Button */}
+            <button
+              onClick={toggleTheme}
+              className="p-2.5 rounded-xl border border-border bg-secondary/50 hover:bg-secondary transition-colors duration-200 cursor-pointer"
+              aria-label="Toggle theme mode"
+            >
+              {theme === 'dark' ? (
+                <Sun className="w-5 h-5 text-amber-400 rotate-0 transition-all hover:rotate-45" />
+              ) : (
+                <Moon className="w-5 h-5 text-indigo-500 hover:scale-105 transition-all" />
+              )}
+            </button>
 
             {/* Notification Bell */}
             <div className="relative">
               <button
                 onClick={() => setIsNotificationOpen(!isNotificationOpen)}
-                className="p-2.5 rounded-xl border border-border bg-secondary/50 hover:bg-secondary transition-colors duration-200 relative"
+                className="p-2.5 rounded-xl border border-border bg-secondary/50 hover:bg-secondary transition-colors duration-200 relative cursor-pointer"
               >
                 <Bell className="w-5 h-5" />
                 {unreadCount > 0 && (

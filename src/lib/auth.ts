@@ -31,8 +31,27 @@ export const authOptions: NextAuthOptions = {
         const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
 
         if (!isPasswordValid) {
+          // Register failed audit log
+          await prisma.loginHistory.create({
+            data: {
+              userId: user.id,
+              status: 'FAILED',
+              device: 'Web Browser',
+              ipAddress: '127.0.0.1'
+            }
+          });
           throw new Error('Incorrect password.');
         }
+
+        // Register successful audit log
+        await prisma.loginHistory.create({
+          data: {
+            userId: user.id,
+            status: 'SUCCESS',
+            device: 'Web Browser',
+            ipAddress: '127.0.0.1'
+          }
+        });
 
         return {
           id: user.id,

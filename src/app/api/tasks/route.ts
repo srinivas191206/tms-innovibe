@@ -5,7 +5,7 @@ import { createNotification } from '@/lib/notifications';
 // 1. POST: Create task (Manager/Admin)
 export async function POST(req: NextRequest) {
   try {
-    const { title, description, priority, deadline, assignedToId, assignedById } = await req.json();
+    const { title, description, priority, deadline, assignedToId, assignedById, isRecurring, recurrenceInterval, dependencyIds } = await req.json();
 
     if (!title || !description || !priority || !deadline || !assignedToId || !assignedById) {
       return NextResponse.json({ error: 'Missing mandatory task assignment fields.' }, { status: 400 });
@@ -26,7 +26,14 @@ export async function POST(req: NextRequest) {
         assignedToId,
         assignedById,
         status: 'PENDING',
-        progress: 0
+        progress: 0,
+        isRecurring: !!isRecurring,
+        recurrenceInterval: recurrenceInterval || null,
+        dependencies: dependencyIds && dependencyIds.length > 0 ? {
+          create: dependencyIds.map((depId: string) => ({
+            dependsOnId: depId
+          }))
+        } : undefined
       }
     });
 
@@ -82,13 +89,19 @@ export async function PATCH(req: NextRequest) {
     if (status) updateData.status = status;
     if (typeof progress === 'number') updateData.progress = progress;
 
+    // Increment reopened count if manager reopens
+    const isEmployee = employeeId && employeeId === existingTask.assignedToId;
+    const isReopening = !isEmployee && status === 'IN_PROGRESS' && (existingTask.status === 'REVIEW' || existingTask.status === 'COMPLETED');
+    if (isReopening) {
+      updateData.reopenedCount = { increment: 1 };
+    }
+
     const task = await prisma.task.update({
       where: { id },
       data: updateData
     });
 
     // Evaluate actors and workflow state changes
-    const isEmployee = employeeId && employeeId === existingTask.assignedToId;
     const actorName = isEmployee ? existingTask.assignedTo.name : existingTask.assignedBy.name;
 
     // Trigger specific logs and notification paths
@@ -161,12 +174,12 @@ export async function PATCH(req: NextRequest) {
           emailSubject: `Task Approved & Completed: ${task.title}`,
           emailBody: `Excellent work! Your department manager has reviewed your submission for the task "${task.title}" and approved it.\n\nThis task is now marked as COMPLETED.`
         });
-      } else if (status === 'IN_PROGRESS' && existingTask.status === 'REVIEW') {
+      } else if (isReopening) {
         // Reopened by manager
         await prisma.taskHistory.create({
           data: {
             taskId: id,
-            action: 'Submission rejected. Task Reopened by Manager',
+            action: `Task Reopened by Manager (Reopen Count: ${existingTask.reopenedCount + 1})`,
             actorName
           }
         });

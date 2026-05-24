@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/db';
 import DashboardLayout from '@/components/DashboardLayout';
 import ProfileSettingsClient from './ProfileSettingsClient';
+import EmployeeAnalytics from './EmployeeAnalytics';
 import { 
   Clock, 
   Briefcase, 
@@ -64,6 +65,65 @@ export default async function EmployeeDashboard() {
     orderBy: { createdAt: 'desc' },
     take: 5
   });
+
+  // 6. Fetch check-in timings for the last 7 days
+  const recentAttendances = await prisma.attendance.findMany({
+    where: { employeeId: session.user.id },
+    orderBy: { checkIn: 'desc' },
+    take: 7
+  });
+
+  const attendanceTrend = recentAttendances.map(a => {
+    const checkInDate = new Date(a.checkIn);
+    const hrs = checkInDate.getHours();
+    const mins = checkInDate.getMinutes();
+    const decimal = hrs + mins / 60;
+    
+    return {
+      date: checkInDate.toLocaleDateString([], { month: 'short', day: 'numeric' }),
+      checkInTimeDecimal: decimal,
+      label: checkInDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }),
+      status: a.status
+    };
+  }).reverse();
+
+  // 7. Fetch task completions over the last 30 days
+  const completedTasks = await prisma.task.findMany({
+    where: {
+      assignedToId: session.user.id,
+      status: 'COMPLETED',
+      updatedAt: {
+        gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+      }
+    },
+    select: {
+      updatedAt: true
+    }
+  });
+
+  const completionsByDate: Record<string, number> = {};
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    completionsByDate[dateStr] = 0;
+  }
+
+  completedTasks.forEach(task => {
+    const dateStr = new Date(task.updatedAt).toLocaleDateString([], { month: 'short', day: 'numeric' });
+    if (completionsByDate[dateStr] !== undefined) {
+      completionsByDate[dateStr]++;
+    }
+  });
+
+  const taskCompletions = Object.keys(completionsByDate).map(date => ({
+    date,
+    count: completionsByDate[date]
+  }));
+
+  // 8. Fetch Office Timing settings
+  const globalSetting = await prisma.setting.findFirst() || { officeStartTime: "09:00" };
+  const officeStartTime = globalSetting.officeStartTime;
 
   return (
     <DashboardLayout>
@@ -162,6 +222,13 @@ export default async function EmployeeDashboard() {
           </div>
         </div>
 
+        {/* Dynamic Recharts Performance Tracking */}
+        <EmployeeAnalytics
+          attendanceTrend={attendanceTrend}
+          taskCompletions={taskCompletions}
+          officeStartTime={officeStartTime}
+        />
+
         {/* WORKSPACE DETAILED LOGS */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
@@ -174,7 +241,7 @@ export default async function EmployeeDashboard() {
                 {recentNotifications.length === 0 ? (
                   <p className="text-center text-xs text-muted-foreground py-6">You have no recent alerts logged.</p>
                 ) : (
-                  recentNotifications.map((notif, idx) => (
+                  recentNotifications.map((notif) => (
                     <div key={notif.id} className={`pt-3.5 first:pt-0 flex items-start gap-4 text-xs ${notif.read ? 'opacity-70' : ''}`}>
                       <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl mt-0.5">
                         <Bell className="w-4 h-4" />

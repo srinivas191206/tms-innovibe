@@ -153,3 +153,53 @@ body {
 .dark-theme .gradient-text {
   background-image: linear-gradient(to right, #818cf8, #c084fc);
 }
+
+/* Premium PDF / Print Media Styles */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 10pt !important;
+  }
+  
+  /* Hide sidebar drawers, top headers, action buttons, notifications and indicators */
+  aside, 
+  header, 
+  button, 
+  nav, 
+  .relative.inline-block,
+  .no-print,
+  a[href*="apply"], 
+  a[href*="comprehensive"] {
+    display: none !important;
+  }
+  
+  /* Make main layout full screen */
+  main {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+  
+  /* Avoid page breaks inside tables and cards */
+  tr, p, div, table {
+    page-break-inside: avoid !important;
+  }
+  
+  /* Render cards flat and clean */
+  .bg-card {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: none !important;
+    border-radius: 12px !important;
+    color: #000000 !important;
+  }
+  
+  /* Reset backgrounds */
+  .glass, .dark-theme .glass {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: none !important;
+  }
+}

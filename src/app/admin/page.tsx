@@ -14,6 +14,10 @@ import {
   Bell
 } from 'lucide-react';
 import AdminLeaveActions from './AdminLeaveActions';
+import AdminAnalytics from './AdminAnalytics';
+import AIInsightsCard from '@/components/AIInsightsCard';
+import ExportReportsButton from '@/components/ExportReportsButton';
+import { runOperationalEscalationAudit } from '@/lib/escalation';
 
 /** Returns true if the given DOB string (YYYY-MM-DD) falls on tomorrow (year-agnostic) */
 function isBirthdayTomorrow(dobString: string | null): boolean {
@@ -30,6 +34,9 @@ function isBirthdayTomorrow(dobString: string | null): boolean {
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboard() {
+  // Trigger background operational escalations and delay triggers dynamically
+  runOperationalEscalationAudit().catch(err => console.error("[BG ESCALATION ERR] Trigger failed:", err));
+
   // 1. Gather general statistics
   const totalEmployees = await prisma.user.count({
     where: { role: 'EMPLOYEE' }
@@ -92,6 +99,95 @@ export default async function AdminDashboard() {
   const attendanceRate = totalEmployees > 0 ? Math.round((presentCount / totalEmployees) * 100) : 100;
   const lateRate = totalCheckedIn > 0 ? Math.round((lateCount / totalCheckedIn) * 100) : 0;
 
+  // 6. Fetch Department performance comparison
+  const departmentsData = await prisma.department.findMany({
+    include: {
+      members: {
+        include: {
+          assignedTasks: {
+            select: {
+              status: true
+            }
+          }
+        }
+      }
+    }
+  });
+
+  const departmentStats = departmentsData.map(dept => {
+    let completed = 0;
+    let active = 0;
+    dept.members.forEach(member => {
+      member.assignedTasks.forEach(task => {
+        if (task.status === 'COMPLETED') {
+          completed++;
+        } else {
+          active++;
+        }
+      });
+    });
+    return {
+      name: dept.name,
+      completed,
+      active,
+      total: completed + active
+    };
+  });
+
+  // 7. Fetch Employee workload workload heatmap
+  const employeesWorkload = await prisma.user.findMany({
+    where: { role: 'EMPLOYEE' },
+    include: {
+      assignedTasks: {
+        where: {
+          status: { in: ['PENDING', 'IN_PROGRESS', 'REVIEW'] }
+        },
+        select: {
+          id: true
+        }
+      },
+      department: {
+        select: {
+          name: true
+        }
+      }
+    }
+  });
+
+  const employeeHeatmap = employeesWorkload.map(emp => ({
+    id: emp.id,
+    name: emp.name,
+    department: emp.department?.name || 'Unassigned',
+    activeTasksCount: emp.assignedTasks.length
+  }));
+
+  // 8. Fetch Security Audit Logs / Login Histories
+  const loginHistories = await prisma.loginHistory.findMany({
+    take: 15,
+    orderBy: { createdAt: 'desc' },
+    include: {
+      user: {
+        select: {
+          name: true,
+          email: true,
+          role: true
+        }
+      }
+    }
+  });
+
+  // 9. Fetch all corporate tasks for dynamic CSV downloads
+  const allTasksRaw = await prisma.task.findMany({
+    include: {
+      assignedTo: {
+        select: {
+          name: true,
+          email: true
+        }
+      }
+    }
+  });
+
   return (
     <DashboardLayout>
       <div className="space-y-8 animate-in fade-in duration-300">
@@ -102,9 +198,18 @@ export default async function AdminDashboard() {
             <h2 className="text-2xl font-bold font-outfit">Corporate Operations Hub</h2>
             <p className="text-sm text-muted-foreground mt-0.5">Real-time statistics, anomalous check-in detection, and task tracking pipelines.</p>
           </div>
-          <div className="flex items-center gap-2 text-xs font-semibold px-4 py-2 rounded-xl bg-secondary/50 border border-border shrink-0 self-start md:self-auto">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            Sync status: Operational
+          
+          <div className="flex items-center gap-3 shrink-0 self-start md:self-auto">
+            <ExportReportsButton 
+              tasks={allTasksRaw} 
+              attendance={todayAttendances} 
+              leaves={pendingLeaves} 
+              filenamePrefix="admin_innovibe" 
+            />
+            <div className="flex items-center gap-2 text-xs font-semibold px-4 py-2.5 rounded-xl bg-secondary/50 border border-border">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              Sync status: Operational
+            </div>
           </div>
         </div>
 
@@ -150,6 +255,9 @@ export default async function AdminDashboard() {
           </div>
         )}
 
+        {/* Gemini AI Cognitive Analysis Card */}
+        <AIInsightsCard />
+
         {/* 1. KPI CARDS */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* Card 1 */}
@@ -177,7 +285,7 @@ export default async function AdminDashboard() {
             </div>
             <p className="text-3xl font-extrabold font-outfit">{presentCount}</p>
             <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-semibold mt-2.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
               <span>{attendanceRate}% attendance rate</span>
             </div>
           </div>
@@ -187,7 +295,7 @@ export default async function AdminDashboard() {
             <div className="flex items-center justify-between mb-4">
               <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Late Arrivals</span>
               <div className="p-2 bg-amber-500/10 rounded-xl text-amber-400 group-hover:scale-110 transition-transform">
-                <Clock className="w-5 h-5" />
+                <Clock className="w-5 h-5 animate-bounce" />
               </div>
             </div>
             <p className="text-3xl font-extrabold font-outfit text-amber-500">{lateCount}</p>
@@ -293,7 +401,7 @@ export default async function AdminDashboard() {
 
           {/* Pending Leaves Panel */}
           <div className="space-y-4">
-            <h3 className="text-lg font-bold font-outfit">Active Leave Requests ({pendingLeaves.length})</h3>
+            <h3 className="text-lg font-bold font-outfit">Leave Applications Queue ({pendingLeaves.length})</h3>
             
             <div className="space-y-4">
               {pendingLeaves.length === 0 ? (
@@ -332,6 +440,17 @@ export default async function AdminDashboard() {
           </div>
 
         </div>
+
+        {/* Premium Corporate Analytics Suite */}
+        <AdminAnalytics
+          presentCount={presentCount}
+          lateCount={lateCount}
+          halfDayCount={halfDayCount}
+          absentCount={absentCount}
+          departmentStats={departmentStats}
+          employeeHeatmap={employeeHeatmap}
+          loginHistories={loginHistories}
+        />
       </div>
     </DashboardLayout>
   );

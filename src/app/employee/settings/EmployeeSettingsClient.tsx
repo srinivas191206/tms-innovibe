@@ -10,14 +10,13 @@ import {
   Calendar, 
   Camera, 
   Upload, 
-  Activity, 
   CheckCircle, 
   AlertCircle, 
   RefreshCw, 
   Video,
   X,
-  Sparkles,
-  Smartphone
+  Smartphone,
+  ShieldAlert
 } from 'lucide-react';
 
 interface EmployeeSettingsClientProps {
@@ -28,6 +27,7 @@ interface EmployeeSettingsClientProps {
     photo: string | null;
     gender: string | null;
     dob: string | null;
+    twoFactorEnabled: boolean;
   };
 }
 
@@ -39,7 +39,7 @@ export default function EmployeeSettingsClient({ initialUser }: EmployeeSettings
 
   // Form Fields State
   const [name, setName] = useState(initialUser.name);
-  const [email] = useState(initialUser.email); // Corporate email read-only for standard security
+  const [email] = useState(initialUser.email);
   const [gender, setGender] = useState(initialUser.gender || '');
   const [dob, setDob] = useState(initialUser.dob || '');
   const [password, setPassword] = useState('');
@@ -56,12 +56,22 @@ export default function EmployeeSettingsClient({ initialUser }: EmployeeSettings
   const [saveLoading, setSaveLoading] = useState(false);
   const [status, setStatus] = useState<{ type: 'SUCCESS' | 'ERROR'; text: string } | null>(null);
 
-  // Sync form fields when server refreshes initialUser props (after save + router.refresh())
+  // Two-Factor Authentication Security Center States
+  const [twoFactorEnabledState, setTwoFactorEnabledState] = useState(initialUser.twoFactorEnabled);
+  const [mfaSetupStep, setMfaSetupStep] = useState<'IDLE' | 'SCAN'>('IDLE');
+  const [mfaSecret, setMfaSecret] = useState('');
+  const [mfaQrUri, setMfaQrUri] = useState('');
+  const [mfaCodeInput, setMfaCodeInput] = useState('');
+  const [mfaSectionError, setMfaSectionError] = useState('');
+  const [mfaLoading, setMfaLoading] = useState(false);
+
+  // Sync form fields when server refreshes initialUser props
   useEffect(() => {
     setName(initialUser.name);
     setGender(initialUser.gender || '');
     setDob(initialUser.dob || '');
     setPhoto(initialUser.photo || '');
+    setTwoFactorEnabledState(initialUser.twoFactorEnabled);
   }, [initialUser]);
 
   // Manage camera cleanup
@@ -86,7 +96,6 @@ export default function EmployeeSettingsClient({ initialUser }: EmployeeSettings
         videoRef.current.srcObject = stream;
         setCameraActive(true);
       } else {
-        // Hydration delay handler
         setTimeout(() => {
           if (videoRef.current) {
             videoRef.current.srcObject = stream;
@@ -127,7 +136,6 @@ export default function EmployeeSettingsClient({ initialUser }: EmployeeSettings
     const base64Data = selfieBase64.replace(/^data:image\/\w+;base64,/, '');
     const buffer = Buffer.from(base64Data, 'base64');
     
-    // Create physical blob upload payload
     const fileBlob = new Blob([buffer], { type: 'image/jpeg' });
     const file = new File([fileBlob], 'avatar_snapshot.jpg', { type: 'image/jpeg' });
 
@@ -222,7 +230,6 @@ export default function EmployeeSettingsClient({ initialUser }: EmployeeSettings
       });
 
       if (res.ok) {
-        // Synchronize browser cookie session parameters instantly
         await update({
           name: name.trim(),
           photo: photo || null,
@@ -242,6 +249,83 @@ export default function EmployeeSettingsClient({ initialUser }: EmployeeSettings
       setStatus({ type: 'ERROR', text: 'Internal database synchronization failure.' });
     } finally {
       setSaveLoading(false);
+    }
+  };
+
+  // MFA Interactive Actions
+  const handleInitializeMFASetup = async () => {
+    setMfaLoading(true);
+    setMfaSectionError('');
+    try {
+      const res = await fetch('/api/employee/mfa/setup', { method: 'POST' });
+      if (!res.ok) throw new Error('Failed to generate secure OTP keys.');
+      const data = await res.json();
+      setMfaSecret(data.secret);
+      setMfaQrUri(data.qrUri);
+      setMfaCodeInput('');
+      setMfaSetupStep('SCAN');
+    } catch (err: any) {
+      setMfaSectionError(err.message || 'MFA setup offline.');
+    } finally {
+      setMfaLoading(false);
+    }
+  };
+
+  const handleVerifyMFA = async () => {
+    if (mfaCodeInput.length !== 6) return;
+    setMfaLoading(true);
+    setMfaSectionError('');
+    try {
+      const res = await fetch('/api/employee/mfa/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: mfaCodeInput,
+          action: 'ENABLE'
+        })
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Challenge passcode verification failed.');
+      }
+
+      setTwoFactorEnabledState(true);
+      setMfaSetupStep('IDLE');
+      setStatus({ type: 'SUCCESS', text: 'Congratulations! Multi-Factor Authentication (MFA) has been successfully activated on your login ledger.' });
+    } catch (err: any) {
+      setMfaSectionError(err.message);
+    } finally {
+      setMfaLoading(false);
+    }
+  };
+
+  const handleDisableMFA = async () => {
+    const code = prompt('Please challenge verify by entering a 6-digit TOTP passcode from your Authenticator app:');
+    if (!code) return;
+
+    setMfaLoading(true);
+    try {
+      const res = await fetch('/api/employee/mfa/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code,
+          action: 'DISABLE'
+        })
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to verify secure code.');
+      }
+
+      setTwoFactorEnabledState(false);
+      setStatus({ type: 'SUCCESS', text: 'Multi-Factor Authentication (MFA) has been successfully disabled.' });
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setMfaLoading(false);
     }
   };
 
@@ -393,15 +477,16 @@ export default function EmployeeSettingsClient({ initialUser }: EmployeeSettings
         </form>
       </div>
 
-      {/* Right Column: High-Tech Avatar Camera & Media Card */}
+      {/* Right Column: High-Tech Avatar Camera & MFA Security Card */}
       <div className="space-y-6">
+        
+        {/* Avatar Snapper */}
         <div className="bg-card border border-border p-6 rounded-3xl shadow-sm space-y-6 flex flex-col items-center text-center">
           <div className="border-b border-border pb-4 w-full">
             <h3 className="text-sm font-bold font-outfit text-slate-800 uppercase tracking-wide">Avatar Configuration</h3>
             <p className="text-[10px] text-muted-foreground mt-0.5">Sync camera snap or media file.</p>
           </div>
 
-          {/* Current Avatar display with high-tech glowing outlines */}
           <div className="relative group select-none">
             {photo ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -430,9 +515,7 @@ export default function EmployeeSettingsClient({ initialUser }: EmployeeSettings
             </p>
           </div>
 
-          {/* Action triggers */}
           <div className="w-full grid grid-cols-2 gap-3 pt-2">
-            {/* Trigger file input */}
             <label className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-2xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 text-slate-600 hover:border-slate-400 hover:text-slate-800 transition-all cursor-pointer select-none">
               <Upload className="w-4 h-4 text-slate-500" />
               <span className="text-[9px] font-bold tracking-wide">From Media</span>
@@ -445,7 +528,6 @@ export default function EmployeeSettingsClient({ initialUser }: EmployeeSettings
               />
             </label>
 
-            {/* Trigger Camera Viewfinder */}
             <button
               type="button"
               onClick={() => {
@@ -479,10 +561,7 @@ export default function EmployeeSettingsClient({ initialUser }: EmployeeSettings
             </div>
 
             <div className="relative aspect-square w-full rounded-2xl overflow-hidden border border-slate-200 bg-slate-950 flex items-center justify-center">
-              {/* Sci-fi scanner lasers sweeps when camera is active */}
               {cameraActive && <div className="scanner-laser"></div>}
-
-              {/* Viewfinder corner brackets */}
               <div className="absolute top-4 left-4 w-4 h-4 border-t-2 border-l-2 border-indigo-400 z-10"></div>
               <div className="absolute top-4 right-4 w-4 h-4 border-t-2 border-r-2 border-indigo-400 z-10"></div>
               <div className="absolute bottom-4 left-4 w-4 h-4 border-b-2 border-l-2 border-indigo-400 z-10"></div>
@@ -524,6 +603,109 @@ export default function EmployeeSettingsClient({ initialUser }: EmployeeSettings
             )}
           </div>
         )}
+
+        {/* Two-Factor Authentication Security Center */}
+        <div className="bg-card border border-border p-6 rounded-3xl shadow-sm space-y-4">
+          <div className="border-b border-border pb-4">
+            <h3 className="text-sm font-bold font-outfit text-slate-800 uppercase tracking-wide flex items-center gap-2">
+              <Smartphone className="w-4 h-4 text-indigo-500 animate-pulse" />
+              MFA Security Center
+            </h3>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Protect your account ledger with TOTP Multi-Factor Authentication.</p>
+          </div>
+
+          {twoFactorEnabledState ? (
+            <div className="space-y-4">
+              <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center gap-3 text-xs text-emerald-500 leading-normal">
+                <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0" />
+                <div>
+                  <p className="font-bold">MFA Protection Activated</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Your account is fully fortified with standard 2FA security tokens.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleDisableMFA}
+                disabled={mfaLoading}
+                className="w-full flex items-center justify-center gap-2 py-2.5 bg-rose-500/10 hover:bg-rose-500/15 text-rose-500 font-bold border border-rose-500/20 rounded-xl transition-all text-xs cursor-pointer disabled:opacity-50"
+              >
+                Disable 2FA Security
+              </button>
+            </div>
+          ) : mfaSetupStep === 'SCAN' ? (
+            <div className="space-y-4 animate-in fade-in duration-200">
+              <div className="p-3 bg-secondary/50 border border-border rounded-2xl text-[10px] text-muted-foreground leading-relaxed space-y-2">
+                <p className="font-semibold text-foreground">1. Pair Authenticator App</p>
+                <p>Scan the code below or manually input the Base32 secret key into Google Authenticator, Authy, or Microsoft Authenticator.</p>
+                <div className="p-2.5 bg-card border border-border rounded-xl font-mono text-[11px] font-bold text-center text-indigo-400 tracking-wider">
+                  {mfaSecret}
+                </div>
+              </div>
+
+              <div className="p-3 bg-indigo-500/10 border border-indigo-500/15 rounded-2xl text-[10px] text-indigo-400 text-center leading-relaxed font-bold">
+                <a
+                  href={mfaQrUri}
+                  className="underline hover:text-indigo-300"
+                >
+                  🚀 Click to Quick-Pair Authenticator
+                </a>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-400 block">2. Challenge Verification Code</label>
+                <input
+                  type="text"
+                  maxLength={6}
+                  placeholder="Enter 6-digit code"
+                  value={mfaCodeInput}
+                  onChange={(e) => setMfaCodeInput(e.target.value)}
+                  className="w-full text-center py-2.5 bg-secondary/50 border border-border rounded-xl focus:border-indigo-500 focus:bg-card outline-none font-mono text-base font-bold tracking-widest text-foreground"
+                />
+              </div>
+
+              {mfaSectionError && (
+                <p className="text-[10px] text-rose-500 font-bold text-center leading-snug">{mfaSectionError}</p>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setMfaSetupStep('IDLE')}
+                  className="py-2.5 bg-secondary text-foreground font-bold rounded-xl border border-border text-xs cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleVerifyMFA}
+                  disabled={mfaLoading || mfaCodeInput.length !== 6}
+                  className="py-2.5 gradient-bg-indigo text-white font-bold rounded-xl shadow-md text-xs cursor-pointer disabled:opacity-50"
+                >
+                  {mfaLoading ? 'Verifying...' : 'Fortify App'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-center gap-3 text-xs text-amber-500 leading-normal">
+                <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0 animate-pulse" />
+                <div>
+                  <p className="font-bold">MFA Protection Deactivated</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Your account is currently vulnerable to simple credentials brute force attacks.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleInitializeMFASetup}
+                disabled={mfaLoading}
+                className="w-full flex items-center justify-center gap-2 py-2.5 gradient-bg-indigo text-white font-extrabold rounded-xl shadow-lg shadow-indigo-500/20 hover:scale-[1.01] active:scale-[0.99] transition-all text-xs cursor-pointer disabled:opacity-50"
+              >
+                Activate 2FA Protection
+              </button>
+            </div>
+          )}
+        </div>
+
       </div>
 
       {/* Hidden canvas for video frames processing */}

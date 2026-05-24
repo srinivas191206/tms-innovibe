@@ -21,6 +21,7 @@ export default async function EmployeeSettingsPage() {
       photo: true,
       gender: true,
       dob: true,
+      twoFactorEnabled: true,
     }
   });
 

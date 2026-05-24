@@ -33,6 +33,12 @@ model User {
   notifications  Notification[]
   leaveRequests  LeaveRequest[]
 
+  twoFactorEnabled Boolean        @default(false)
+  twoFactorSecret  String?
+  loginHistories   LoginHistory[]
+  auditLogs        AuditLog[]
+  comments         Comment[]
+
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 }
@@ -64,6 +70,13 @@ model Task {
 
   updates      TaskUpdate[]
   history      TaskHistory[]
+
+  isRecurring        Boolean          @default(false)
+  recurrenceInterval String?          // DAILY, WEEKLY, MONTHLY
+  reopenedCount      Int              @default(0)
+  comments           Comment[]
+  dependencies       TaskDependency[] @relation("TaskDependencies")
+  dependentOn        TaskDependency[] @relation("DependentTasks")
 
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
@@ -133,4 +146,44 @@ model Setting {
   officeEndTime   String   @default("17:00") // HH:MM
   emailsEnabled   Boolean  @default(true)
   updatedAt       DateTime @updatedAt
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime @default(now())
+}
+
+model TaskDependency {
+  id          String @id @default(uuid())
+  taskId      String
+  task        Task   @relation("TaskDependencies", fields: [taskId], references: [id], onDelete: Cascade)
+  dependsOnId String
+  dependsOn   Task   @relation("DependentTasks", fields: [dependsOnId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, dependsOnId])
+}
+
+model LoginHistory {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ipAddress String?
+  device    String?
+  location  String?
+  status    String   // "SUCCESS" or "FAILED"
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action    String
+  details   String
+  createdAt DateTime @default(now())
 }

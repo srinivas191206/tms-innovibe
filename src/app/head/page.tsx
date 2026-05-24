@@ -16,6 +16,10 @@ import {
   Bell
 } from 'lucide-react';
 import HeadClient from './HeadClient';
+import HeadAnalytics from './HeadAnalytics';
+import AIInsightsCard from '@/components/AIInsightsCard';
+import ExportReportsButton from '@/components/ExportReportsButton';
+import { runOperationalEscalationAudit } from '@/lib/escalation';
 
 /** Returns true if the given DOB string (YYYY-MM-DD) falls on tomorrow (year-agnostic) */
 function isBirthdayTomorrow(dobString: string | null): boolean {
@@ -32,6 +36,9 @@ function isBirthdayTomorrow(dobString: string | null): boolean {
 export const dynamic = 'force-dynamic';
 
 export default async function HeadDashboard() {
+  // Trigger background operational escalations and delay triggers dynamically
+  runOperationalEscalationAudit().catch(err => console.error("[BG ESCALATION ERR] Trigger failed:", err));
+
   const session = await getServerSession(authOptions);
   if (!session) return null;
 
@@ -105,6 +112,13 @@ export default async function HeadDashboard() {
     orderBy: { createdAt: 'desc' }
   });
 
+  // 5. Fetch team leaves
+  const teamLeaves = await prisma.leaveRequest.findMany({
+    where: { employeeId: { in: teamMemberIds } },
+    include: { employee: true },
+    orderBy: { createdAt: 'desc' }
+  });
+
   // Compute metrics
   const totalTeamTasks = teamTasks.length;
   const pendingTasks = teamTasks.filter((t) => t.status === 'PENDING').length;
@@ -119,6 +133,53 @@ export default async function HeadDashboard() {
   // Birthday reminders – department members celebrating tomorrow
   const tomorrowBirthdays = department.members.filter((m) => isBirthdayTomorrow(m.dob));
 
+  // Compute analytics status distribution
+  const taskStatusDistribution = [
+    { name: 'Pending', value: pendingTasks, color: '#64748b' },
+    { name: 'In Progress', value: inProgressTasks, color: '#6366f1' },
+    { name: 'Awaiting Audit', value: reviewTasks.length, color: '#f59e0b' },
+    { name: 'Completed', value: completedTasks, color: '#10b981' }
+  ];
+
+  // Compute team attendance rate over the last 7 days
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 10); // Fetch 10 days back to cover weekends
+
+  const recentTeamAttendances = await prisma.attendance.findMany({
+    where: {
+      employeeId: { in: teamMemberIds },
+      checkIn: { gte: sevenDaysAgo }
+    },
+    select: {
+      checkIn: true
+    }
+  });
+
+  const attendancesByDate: Record<string, number> = {};
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    attendancesByDate[dateStr] = 0;
+  }
+
+  recentTeamAttendances.forEach(att => {
+    const dateStr = new Date(att.checkIn).toLocaleDateString([], { month: 'short', day: 'numeric' });
+    if (attendancesByDate[dateStr] !== undefined) {
+      attendancesByDate[dateStr]++;
+    }
+  });
+
+  const totalTeamSize = department.members.length;
+  const attendanceTrend = Object.keys(attendancesByDate).map(date => {
+    const count = attendancesByDate[date];
+    const rate = totalTeamSize > 0 ? Math.round((count / totalTeamSize) * 100) : 0;
+    return {
+      date,
+      rate: Math.min(100, rate)
+    };
+  });
+
   return (
     <DashboardLayout>
       <div className="space-y-8 animate-in fade-in duration-300">
@@ -130,7 +191,14 @@ export default async function HeadDashboard() {
             <h2 className="text-2xl font-bold font-outfit mt-1">{department.name} Operations Hub</h2>
             <p className="text-xs text-muted-foreground">Monitor employee workloads, verify face attendance captures, and audit deliverables.</p>
           </div>
-          <div className="flex gap-4 shrink-0">
+          
+          <div className="flex flex-wrap items-center gap-4 shrink-0">
+            <ExportReportsButton 
+              tasks={teamTasks} 
+              attendance={teamAttendances} 
+              leaves={teamLeaves} 
+              filenamePrefix={`head_${department.name.toLowerCase()}`}
+            />
             <div className="text-center bg-secondary/50 border border-border rounded-2xl px-5 py-3 min-w-[100px]">
               <p className="text-2xl font-extrabold font-outfit text-indigo-400">{department.members.length}</p>
               <p className="text-[10px] font-semibold text-muted-foreground uppercase mt-0.5">Team Sizing</p>
@@ -179,6 +247,9 @@ export default async function HeadDashboard() {
           </div>
         )}
 
+        {/* Gemini AI Cognitive Analysis Card */}
+        <AIInsightsCard />
+
         {/* STATS CARDS GRID */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="p-6 bg-card border border-border rounded-2xl flex items-center justify-between shadow-sm">
@@ -221,6 +292,12 @@ export default async function HeadDashboard() {
             </div>
           </div>
         </div>
+
+        {/* Dynamic Head Analytics Charts */}
+        <HeadAnalytics
+          taskStatusDistribution={taskStatusDistribution}
+          attendanceTrend={attendanceTrend}
+        />
 
         {/* WORKSPACE PANELS */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
